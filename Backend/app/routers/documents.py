@@ -16,6 +16,31 @@ def create_document(doc: DocumentCreate, session: Session = Depends(get_session)
     session.add(db_doc)
     session.commit()
     session.refresh(db_doc)
+
+    # Create the first version
+    from app.models.documents import DocumentVersion
+    from app.schemas.documents import DocumentVersionCreate
+
+    version_data = {
+        'document_id': db_doc.id,
+        'version_number': 1,
+        'title': getattr(doc, 'title', getattr(db_doc, 'title', None)),
+        'description': getattr(doc, 'description', getattr(db_doc, 'description', None)),
+        'file_path': getattr(doc, 'file_path', None),
+        'uploaded_by': getattr(doc, 'uploader_id', None),
+        'access_level': getattr(doc, 'access_level', 'public'),
+    }
+    db_ver = DocumentVersion(**version_data)
+    session.add(db_ver)
+    session.commit()
+    session.refresh(db_ver)
+
+    # Update document's current_version_id
+    db_doc.current_version_id = db_ver.id
+    session.add(db_doc)
+    session.commit()
+    session.refresh(db_doc)
+
     return db_doc
 
 

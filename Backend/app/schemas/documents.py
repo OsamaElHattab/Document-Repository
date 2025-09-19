@@ -1,16 +1,16 @@
 from typing import Optional, List
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, Field
 
 
 class DocumentBase(SQLModel):
     title: str
     description: Optional[str] = None
     access_level: str = "public"
+    file_path: str = Field(default="")
 
 
 class DocumentCreate(DocumentBase):
     uploader_id: str
-    created_by: str
 
 
 class DocumentRead(DocumentBase):
@@ -28,6 +28,7 @@ class DocumentUpdate(SQLModel):
 class DocumentVersionBase(SQLModel):
     title: str
     description: Optional[str] = None
+    access_level: str = "public"
     file_path: str
 
 

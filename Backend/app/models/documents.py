@@ -14,6 +14,7 @@ class Document(SQLModel, table=True):
     title: str
     description: Optional[str] = None
     access_level: str = Field(default="public")  # public | department | private
+    file_path: str = Field(default="")
     uploader_id: str = Field(foreign_key="users.id")
     current_version_id: Optional[str] = Field(foreign_key="document_versions.id", default=None)
 
@@ -38,7 +39,8 @@ class DocumentVersion(SQLModel, table=True):
     version_number: int
     title: str
     description: Optional[str] = None
-    file_path: str
+    access_level: str = Field(default="public")  # public | department | private
+    file_path: str = Field(default="")
     uploaded_by: str = Field(foreign_key="users.id")
 
     # Relationships
