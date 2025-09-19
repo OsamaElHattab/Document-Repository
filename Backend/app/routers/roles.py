@@ -3,8 +3,9 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models.roles import Role
 from app.schemas.roles import RoleCreate, RoleRead
+from app.routers.auth import get_current_user, get_current_admin_user
 
-router = APIRouter(prefix="/roles", tags=["Roles"])
+router = APIRouter(prefix="/roles", tags=["Roles"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/", response_model=RoleRead)

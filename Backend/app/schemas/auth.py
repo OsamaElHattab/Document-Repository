@@ -19,5 +19,4 @@ class UserRegister(BaseModel):
     email: str
     password: str
     full_name: str
-    department_id: str
-    role_id: int
+    department_id: int

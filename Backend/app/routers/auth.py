@@ -26,7 +26,7 @@ def register_user(user_in: UserRegister, session: Session = Depends(get_session)
         full_name=user_in.full_name,
         hashed_password=hash_password(user_in.password),
         department_id=user_in.department_id,
-        role_id=user_in.role_id,
+        role_id= 2 #default role is user (admin will be assigned manually in the database)
     )
     session.add(user)
     session.commit()
@@ -62,3 +62,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Dep
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+# Get current admin user
+def get_current_admin_user(current_user: User = Depends(get_current_user)):
+    if current_user.role.name != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return current_user

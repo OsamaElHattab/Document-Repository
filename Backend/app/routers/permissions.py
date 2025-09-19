@@ -6,8 +6,9 @@ from app.schemas.permissions import (
     DocumentUserPermissionCreate, DocumentUserPermissionRead,
     DocumentDepartmentPermissionCreate, DocumentDepartmentPermissionRead,
 )
+from app.routers.auth import get_current_user, get_current_admin_user
 
-router = APIRouter(prefix="/permissions", tags=["Permissions"])
+router = APIRouter(prefix="/permissions", tags=["Permissions"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/users", response_model=DocumentUserPermissionRead)

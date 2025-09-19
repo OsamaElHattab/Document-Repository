@@ -3,8 +3,9 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models.tags import Tag
 from app.schemas.tags import TagCreate, TagRead
+from app.routers.auth import get_current_user, get_current_admin_user
 
-router = APIRouter(prefix="/tags", tags=["Tags"])
+router = APIRouter(prefix="/tags", tags=["Tags"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/", response_model=TagRead)

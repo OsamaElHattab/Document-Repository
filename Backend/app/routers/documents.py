@@ -6,8 +6,13 @@ from app.schemas.documents import (
     DocumentCreate, DocumentRead, DocumentUpdate,
     DocumentVersionCreate, DocumentVersionRead
 )
+from app.routers.auth import get_current_user, get_current_admin_user
 
-router = APIRouter(prefix="/documents", tags=["Documents"])
+router = APIRouter(
+    prefix="/documents",
+    tags=["Documents"],
+    dependencies=[Depends(get_current_user)]
+)
 
 
 @router.post("/", response_model=DocumentRead)
