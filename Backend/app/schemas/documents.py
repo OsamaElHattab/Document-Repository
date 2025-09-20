@@ -27,9 +27,9 @@ class DocumentUpdate(SQLModel):
 
 # Versions
 class DocumentVersionBase(SQLModel):
-    title: str
+    title: Optional[str] = None
     description: Optional[str] = None
-    access_level: str = "public"
+    access_level: Optional[str] = "public"
     file_path: str
 
 

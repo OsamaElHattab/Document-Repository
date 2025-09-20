@@ -12,7 +12,7 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
     "/",
     response_model=DepartmentRead,
     status_code=201,
-    dependencies=[Depends(get_current_admin_user), Depends(get_current_user)]
+    # dependencies=[Depends(get_current_admin_user), Depends(get_current_user)]
 )
 def create_department(dept: DepartmentCreate, session: Session = Depends(get_session)):
     db_dept = Department(name=dept.name)

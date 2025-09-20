@@ -11,3 +11,6 @@ class TagCreate(TagBase):
 
 class TagRead(TagBase):
     id: int
+
+    class Config:
+        orm_mode = True

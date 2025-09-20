@@ -37,11 +37,12 @@ class DocumentVersion(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, index=True)
     document_id: str = Field(foreign_key="documents.id", nullable=False)
     version_number: int
-    title: str
+    title: Optional[str] = None
     description: Optional[str] = None
-    access_level: str = Field(default="public")  # public | department | private
+    access_level: Optional[str] = Field(default="public")  # public | department | private
     file_path: str = Field(default="")
     uploaded_by: str = Field(foreign_key="users.id")
+    uploaded_at: Optional[str] = None  # ISO format datetime string
 
     # Relationships
     document: Document = Relationship(
