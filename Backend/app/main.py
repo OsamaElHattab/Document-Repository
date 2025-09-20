@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from app.db.session import init_db
 from app.routers import auth, users, roles, departments, documents, versions, tags, permissions
 
@@ -32,3 +34,6 @@ app.include_router(tags.router)
 @app.on_event("startup")
 def on_startup():
     init_db()
+
+DOCUMENTS_DIR = os.path.join(os.path.dirname(__file__), "..", "Documents")
+app.mount("/Documents", StaticFiles(directory=DOCUMENTS_DIR), name="documents")
