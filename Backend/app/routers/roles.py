@@ -8,7 +8,7 @@ from app.routers.auth import get_current_user, get_current_admin_user
 router = APIRouter(prefix="/roles", tags=["Roles"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/", response_model=RoleRead)
+@router.post("/", response_model=RoleRead, status_code=201, dependencies=[Depends(get_current_admin_user)])
 def create_role(role: RoleCreate, session: Session = Depends(get_session)):
     db_role = Role(name=role.name)
     session.add(db_role)

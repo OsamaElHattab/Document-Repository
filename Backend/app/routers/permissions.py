@@ -11,7 +11,7 @@ from app.routers.auth import get_current_user, get_current_admin_user
 router = APIRouter(prefix="/permissions", tags=["Permissions"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/users", response_model=DocumentUserPermissionRead)
+@router.post("/users", response_model=DocumentUserPermissionRead, status_code=201)
 def add_user_permission(perm: DocumentUserPermissionCreate, session: Session = Depends(get_session)):
     db_perm = DocumentUserPermission(**perm.dict())
     session.add(db_perm)
@@ -25,7 +25,7 @@ def list_user_permissions(session: Session = Depends(get_session)):
     return session.exec(select(DocumentUserPermission)).all()
 
 
-@router.post("/departments", response_model=DocumentDepartmentPermissionRead)
+@router.post("/departments", response_model=DocumentDepartmentPermissionRead, status_code=201)
 def add_department_permission(perm: DocumentDepartmentPermissionCreate, session: Session = Depends(get_session)):
     db_perm = DocumentDepartmentPermission(**perm.dict())
     session.add(db_perm)

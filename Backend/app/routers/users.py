@@ -9,7 +9,7 @@ from app.routers.auth import get_current_user, get_current_admin_user
 router = APIRouter(prefix="/users", tags=["Users"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/", response_model=UserRead)
+@router.post("/", response_model=UserRead, status_code=201)
 def create_user(user: UserCreate, session: Session = Depends(get_session)):
     db_user = User(
         email=user.email,

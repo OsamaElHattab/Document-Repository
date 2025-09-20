@@ -15,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 # Register a new user
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register_user(user_in: UserRegister, session: Session = Depends(get_session)):
     existing_user = session.exec(select(User).where(User.email == user_in.email)).first()
     if existing_user:
@@ -67,4 +67,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Dep
 def get_current_admin_user(current_user: User = Depends(get_current_user)):
     if current_user.role.name != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return current_user
+
+
+# Get current logged-in user
+@router.get("/me")
+def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user

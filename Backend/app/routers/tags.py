@@ -8,7 +8,7 @@ from app.routers.auth import get_current_user, get_current_admin_user
 router = APIRouter(prefix="/tags", tags=["Tags"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/", response_model=TagRead)
+@router.post("/", response_model=TagRead, status_code=201)
 def create_tag(tag: TagCreate, session: Session = Depends(get_session)):
     db_tag = Tag(name=tag.name)
     session.add(db_tag)

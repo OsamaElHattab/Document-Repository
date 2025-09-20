@@ -5,10 +5,15 @@ from app.models.departments import Department
 from app.schemas.departments import DepartmentCreate, DepartmentRead
 from app.routers.auth import get_current_user, get_current_admin_user
 
-router = APIRouter(prefix="/departments", tags=["Departments"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/departments", tags=["Departments"])
 
 
-@router.post("/", response_model=DepartmentRead)
+@router.post(
+    "/",
+    response_model=DepartmentRead,
+    status_code=201,
+    dependencies=[Depends(get_current_admin_user), Depends(get_current_user)]
+)
 def create_department(dept: DepartmentCreate, session: Session = Depends(get_session)):
     db_dept = Department(name=dept.name)
     session.add(db_dept)
