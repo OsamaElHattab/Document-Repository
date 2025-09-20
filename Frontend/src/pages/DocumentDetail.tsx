@@ -1,4 +1,3 @@
-// src/pages/DocumentDetail.tsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -11,8 +10,18 @@ import {
   ListItem,
   IconButton,
   Chip,
+  Input,
+  Dialog,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
 } from '@material-tailwind/react';
-import { ArrowLeftIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowLeftIcon,
+  ArrowDownTrayIcon,
+  PlusIcon,
+  ArrowUpTrayIcon,
+} from '@heroicons/react/24/outline';
 
 interface DocumentItem {
   id: string;
@@ -36,11 +45,17 @@ interface VersionItem {
   access_level?: string;
 }
 
+interface TagItem {
+  id: number;
+  name: string;
+}
+
 export default function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [doc, setDoc] = useState<DocumentItem | null>(null);
   const [versions, setVersions] = useState<VersionItem[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
     null
@@ -48,6 +63,14 @@ export default function DocumentDetail() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Add tag
+  const [newTag, setNewTag] = useState('');
+
+  // Upload new version
+  const [openUpload, setOpenUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // axios instance with authentication
   const axiosAuth = axios.create({
@@ -58,7 +81,7 @@ export default function DocumentDetail() {
     },
   });
 
-  // Fetch document + versions
+  // Fetch document + versions + tags
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -66,14 +89,18 @@ export default function DocumentDetail() {
 
     async function fetchData() {
       try {
-        const [docRes, versionsRes] = await Promise.all([
+        const [docRes, versionsRes, tagsRes] = await Promise.all([
           axiosAuth.get<DocumentItem>(`/documents/${id}`),
           axiosAuth.get<VersionItem[]>(`/documents/${id}/versions`),
+          axiosAuth.get<TagItem[]>(`/tags/document/${id}`),
         ]);
         setDoc(docRes.data);
+
         const vers = versionsRes.data || [];
         vers.sort((a, b) => a.version_number - b.version_number);
         setVersions(vers);
+
+        setTags(tagsRes.data || []);
 
         if (vers.length > 0) {
           const last = vers[vers.length - 1];
@@ -95,6 +122,7 @@ export default function DocumentDetail() {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Fetch preview for selected version
@@ -142,9 +170,9 @@ export default function DocumentDetail() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ext = version.file_path.split('.').pop() || 'bin';
-      const filename = `${version.title || doc?.title || 'document'}_v${
-        version.version_number
-      }.${ext}`;
+      const filename = `${
+        version.title || doc?.title || 'document'
+      }_v${version.version_number}.${ext}`;
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -154,6 +182,48 @@ export default function DocumentDetail() {
     } catch (err) {
       console.error('Download failed:', err);
       alert('Download failed');
+    }
+  };
+
+  // Add new tag
+  const handleAddTag = async () => {
+    if (!newTag.trim() || !id) return;
+    try {
+      const res = await axiosAuth.post(`/tags/attach/${id}`, {
+        name: newTag.trim(),
+      });
+      setTags((prev) => [...prev, res.data]);
+      setNewTag('');
+    } catch (err) {
+      console.error('Failed to add tag:', err);
+      alert('Failed to add tag');
+    }
+  };
+
+  // Upload new version
+  const handleUploadVersion = async () => {
+    if (!uploadFile || !id) return;
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+
+      const res = await axiosAuth.post(`/documents/${id}/versions`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setVersions((prev) =>
+        [...prev, res.data].sort((a, b) => a.version_number - b.version_number)
+      );
+      setSelectedVersionId(res.data.id);
+      await fetchPreview(res.data.id);
+      setOpenUpload(false);
+      setUploadFile(null);
+    } catch (err) {
+      console.error('Upload failed:', err);
+      alert('Upload failed');
+    } finally {
+      setUploadLoading(false);
     }
   };
 
@@ -188,9 +258,9 @@ export default function DocumentDetail() {
 
   return (
     <div className='max-h-[85vh] p-6 bg-color-background-light dark:bg-color-background-dark xl:px-12'>
-      <div className='mx-auto max-w-screen-2xl flex flex-col md:flex-row gap-6'>
+      <div className='mx-auto max-w-screen-2xl flex flex-col lg:flex-row gap-6'>
         {/* Metadata + Versions */}
-        <div className='w-full md:w-1/4 flex flex-col gap-6 order-1 md:order-2'>
+        <div className='w-full lg:w-1/4 flex flex-col gap-6 order-1 lg:order-2'>
           {/* Metadata card */}
           <Card className='rounded-2xl shadow-md bg-white dark:bg-color-background-dark-second'>
             <CardBody className='p-4'>
@@ -223,9 +293,23 @@ export default function DocumentDetail() {
                 >
                   Tags
                 </Typography>
-                <div className='flex flex-wrap gap-2'>
-                  <Chip value='tag1' variant='ghost' />
-                  <Chip value='tag2' variant='ghost' />
+                <div className='flex flex-wrap gap-2 mb-2'>
+                  {tags.map((t) => (
+                    <Chip key={t.id} value={t.name} variant='ghost' />
+                  ))}
+                </div>
+                <div className='flex gap-2 w-full'>
+                  <Input
+                    label='Add tag'
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    crossOrigin={undefined}
+                    className='flex-1'
+                    containerProps={{ className: 'w-full' }}
+                  />
+                  <IconButton variant='outlined' onClick={handleAddTag}>
+                    <PlusIcon className='w-4 h-4' />
+                  </IconButton>
                 </div>
               </div>
             </CardBody>
@@ -234,12 +318,23 @@ export default function DocumentDetail() {
           {/* Versions card */}
           <Card className='rounded-2xl shadow-md bg-white dark:bg-color-background-dark-second'>
             <CardBody className='p-4'>
-              <Typography
-                variant='small'
-                className='text-gray-600 dark:text-gray-300'
-              >
-                Versions
-              </Typography>
+              <div className='flex justify-between items-center'>
+                <Typography
+                  variant='small'
+                  className='text-gray-600 dark:text-gray-300'
+                >
+                  Versions
+                </Typography>
+                <Button
+                  size='sm'
+                  variant='outlined'
+                  onClick={() => setOpenUpload(true)}
+                  className='flex items-center gap-1'
+                >
+                  <ArrowUpTrayIcon className='w-4 h-4' />
+                  New
+                </Button>
+              </div>
               <List className='mt-2 divide-y divide-gray-200 dark:divide-gray-700 max-h-[50vh] overflow-auto'>
                 {[...versions].reverse().map((v) => {
                   const isSelected = v.id === selectedVersionId;
@@ -264,7 +359,8 @@ export default function DocumentDetail() {
                               : 'text-gray-700 dark:text-gray-200'
                           }`}
                         >
-                          v{v.version_number} {v.title ? `- ${v.title}` : ''}
+                          v{v.version_number}{' '}
+                          {doc?.title ? `- ${doc?.title}` : ''}
                         </Typography>
                         <Typography className='text-gray-500 dark:text-gray-400'>
                           {v.uploaded_at
@@ -289,20 +385,25 @@ export default function DocumentDetail() {
         </div>
 
         {/* Preview */}
-        <div className='w-full md:w-3/4 order-2 md:order-1 '>
+        <div className='w-full lg:w-3/4 order-2 lg:order-1 '>
           <Card className='rounded-2xl shadow-md bg-white dark:bg-color-background-dark-second '>
             <CardBody className='p-4'>
               <div className='flex items-center justify-between mb-4'>
                 <Typography className='text-lg font-semibold text-color-text-light dark:text-color-text-dark'>
                   Preview
                 </Typography>
-                <Button size='sm' variant='text' onClick={() => navigate(-1)}>
-                  <ArrowLeftIcon className='w-4 h-4 mr-1' />
+                <Button
+                  size='sm'
+                  variant='text'
+                  onClick={() => navigate(-1)}
+                  className='dark:text-color-text-dark'
+                >
+                  <ArrowLeftIcon className='w-4 h-4 mr-1 dark:text-color-text-dark' />
                   Back
                 </Button>
               </div>
 
-              <div className='bg-gray-100 dark:bg-color-background-dark-third rounded-md p-2 h-[70vh] md:h-[70vh] overflow-hidden'>
+              <div className='bg-gray-100 dark:bg-color-background-dark-third rounded-md p-2 h-[70vh] lg:h-[70vh] overflow-hidden'>
                 {previewLoading ? (
                   <div className='w-full h-full flex items-center justify-center'>
                     <Typography className='text-gray-700 dark:text-gray-300'>
@@ -347,6 +448,57 @@ export default function DocumentDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Upload version modal */}
+      <Dialog open={openUpload} handler={() => setOpenUpload(false)} size='sm'>
+        <DialogHeader>Upload New Version</DialogHeader>
+        <DialogBody>
+          <div
+            className='border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md p-6 text-center cursor-pointer'
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (e.dataTransfer.files.length > 0) {
+                setUploadFile(e.dataTransfer.files[0]);
+              }
+            }}
+            onClick={() => document.getElementById('fileInput')?.click()}
+          >
+            {uploadFile ? (
+              <Typography>{uploadFile.name}</Typography>
+            ) : (
+              <Typography>Drag & drop file here or click to select</Typography>
+            )}
+            <input
+              id='fileInput'
+              type='file'
+              className='hidden'
+              onChange={(e) => {
+                if (e.target.files?.length) {
+                  setUploadFile(e.target.files[0]);
+                }
+              }}
+            />
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant='text'
+            color='red'
+            onClick={() => setOpenUpload(false)}
+            className='mr-2'
+          >
+            Cancel
+          </Button>
+          <Button
+            variant='gradient'
+            onClick={handleUploadVersion}
+            disabled={uploadLoading || !uploadFile}
+          >
+            {uploadLoading ? 'Uploading...' : 'Upload'}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

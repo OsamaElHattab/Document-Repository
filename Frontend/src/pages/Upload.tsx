@@ -1,4 +1,5 @@
-import { useState, DragEvent } from 'react';
+// src/pages/Upload.tsx
+import { useState, DragEvent, KeyboardEvent } from 'react';
 import {
   Card,
   CardHeader,
@@ -9,7 +10,9 @@ import {
   Textarea,
   Select,
   Option,
+  Chip,
 } from '@material-tailwind/react';
+import axios from 'axios';
 
 export default function Upload() {
   const [title, setTitle] = useState('');
@@ -18,8 +21,20 @@ export default function Upload() {
     'public' | 'private' | 'department'
   >('public');
   const [file, setFile] = useState<File | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  const token = localStorage.getItem('token');
+
+  const axiosAuth = axios.create({
+    baseURL: 'http://127.0.0.1:8000',
+    headers: {
+      Authorization: `Bearer ${token || ''}`,
+      Accept: 'application/json',
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -47,14 +62,26 @@ export default function Upload() {
     }
   };
 
+  const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim() !== '') {
+      e.preventDefault();
+      if (!tags.includes(tagInput.trim())) {
+        setTags([...tags, tagInput.trim()]);
+      }
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setTags(tags.filter((t) => t !== tag));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
       alert('Please choose a file to upload');
       return;
     }
-
-    const token = localStorage.getItem('token');
     if (!token) {
       alert('You must be logged in to upload');
       return;
@@ -68,16 +95,33 @@ export default function Upload() {
       formData.append('access_level', accessLevel);
       formData.append('file', file);
 
-      const res = await fetch('http://127.0.0.1:8000/documents/', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+      // Upload the document
+      const res = await axiosAuth.post('/documents/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (!res.ok) {
-        throw new Error(await res.text());
+      const docId = res.data.id;
+
+      // Handle tags: create if not exist and link to document
+      for (const tagName of tags) {
+        try {
+          // Try to create tag (will fail if exists)
+          const tagRes = await axiosAuth.post('/tags/', { name: tagName });
+          const tagId = tagRes.data.id;
+
+          await axiosAuth.post(`/documents/${docId}/tags/${tagId}`);
+        } catch (err: any) {
+          if (err.response?.status === 400 || err.response?.status === 409) {
+            // Already exists, fetch it
+            const allTags = await axiosAuth.get('/tags/');
+            const existing = allTags.data.find((t: any) => t.name === tagName);
+            if (existing) {
+              await axiosAuth.post(`/documents/${docId}/tags/${existing.id}`);
+            }
+          } else {
+            console.error('Tag error:', err);
+          }
+        }
       }
 
       alert('Document created successfully!');
@@ -85,6 +129,7 @@ export default function Upload() {
       setDescription('');
       setAccessLevel('public');
       setFile(null);
+      setTags([]);
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Upload failed. Please try again.');
@@ -94,7 +139,7 @@ export default function Upload() {
   };
 
   return (
-    <div className='flex items-center justify-center min-h-[85vh] bg-color-background-light dark:bg-color-background-dark'>
+    <div className='flex items-center justify-center min-h-[85vh] mt-2 bg-color-background-light dark:bg-color-background-dark'>
       <Card className='w-[95vw] max-w-5xl border border-gray-300 shadow-lg dark:bg-color-background-dark-second'>
         <CardHeader
           floated={false}
@@ -194,6 +239,34 @@ export default function Upload() {
                     Department
                   </Option>
                 </Select>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <Typography
+                  variant='small'
+                  className='mb-2 font-medium text-gray-700 dark:text-color-text-dark'
+                >
+                  Tags
+                </Typography>
+                <Input
+                  type='text'
+                  placeholder='Type a tag and press Enter'
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                />
+                <div className='flex flex-wrap gap-2 mt-2'>
+                  {tags.map((tag) => (
+                    <Chip
+                      key={tag}
+                      value={tag}
+                      onClose={() => removeTag(tag)}
+                      className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 

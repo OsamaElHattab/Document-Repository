@@ -10,6 +10,7 @@ import {
 } from '@material-tailwind/react';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
+import { FaRegFolderOpen } from 'react-icons/fa6';
 
 interface DocumentItem {
   id: string;
@@ -143,6 +144,25 @@ export default function Documents() {
         <Typography variant='h6' className='text-gray-700 dark:text-gray-300'>
           Loading documents...
         </Typography>
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className='min-h-[80vh] flex flex-col items-center justify-center bg-color-background-light dark:bg-color-background-dark'>
+        <FaRegFolderOpen className='w-12 h-12 text-gray-600 dark:text-gray-500 mb-5' />
+        <Typography variant='h5' className='text-gray-700 dark:text-gray-300'>
+          No documents found.
+        </Typography>
+        <Button
+          variant='outlined'
+          color='blue-gray'
+          className='mt-4'
+          onClick={() => navigate('/upload')}
+        >
+          Upload Document
+        </Button>
       </div>
     );
   }
