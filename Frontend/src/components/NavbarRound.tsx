@@ -10,7 +10,6 @@ import {
 } from '@material-tailwind/react';
 import ThemeToggleButton from './ThemeToggleButton';
 import { ProfileMenu } from './ProfileMenu';
-import { VscEye } from 'react-icons/vsc';
 import { IoMenu } from 'react-icons/io5';
 import { IoDocuments } from 'react-icons/io5';
 import { IoSearch } from 'react-icons/io5';
