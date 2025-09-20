@@ -10,6 +10,7 @@ import Upload from './pages/Upload';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import DocumentDetail from './pages/DocumentDetail';
 
 export default function AppRouter() {
   const isLoggedIn = !!localStorage.getItem('token');
@@ -72,6 +73,18 @@ export default function AppRouter() {
         <Route
           path='*'
           element={<Navigate to={isLoggedIn ? '/' : '/login'} replace />}
+        />
+        <Route
+          path='/documents/:id'
+          element={
+            isLoggedIn ? (
+              <Layout>
+                <DocumentDetail />
+              </Layout>
+            ) : (
+              <Navigate to='/login' />
+            )
+          }
         />
       </Routes>
     </Router>

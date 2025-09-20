@@ -124,7 +124,7 @@ export default function Documents() {
       );
     }
 
-    // Fallback
+    // Other file types
     return (
       <div className='w-full h-full flex items-center justify-center rounded-md'>
         <Typography
@@ -148,14 +148,14 @@ export default function Documents() {
   }
 
   return (
-    <div className='min-h-screen p-6 bg-color-background-light dark:bg-color-background-dark xl:px-8'>
+    <div className='min-h-[85vh] p-6 bg-color-background-light dark:bg-color-background-dark xl:px-8'>
       <div className='max-w-screen-xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6'>
         {documents.map((doc) => (
           <Card
             key={doc.id}
             className='shadow-md rounded-2xl overflow-hidden bg-white dark:bg-color-background-dark-second'
           >
-            <CardHeader className='p-4'>
+            <CardHeader className='p-4 dark:bg-color-background-dark-third'>
               <div className='p-2 rounded-md bg-gray-100 dark:bg-color-background-dark-third h-40 overflow-hidden'>
                 <div className='w-full h-full rounded-md overflow-hidden'>
                   {renderPreview(doc)}
@@ -183,7 +183,7 @@ export default function Documents() {
                   size='sm'
                   variant='text'
                   onClick={() => navigate(`/documents/${doc.id}`)}
-                  className='flex items-center gap-2 whitespace-nowrap text-color-text-light dark:text-color-text-dark'
+                  className='flex items-center gap-2 whitespace-nowrap text-color-text-light dark:text-color-text-dark dark:bg-color-background-dark dark:hover:bg-color-background-dark-third hover:bg-gray-300 bg-gray-200 rounded-full p-2'
                   aria-label={`Open ${doc.title}`}
                 >
                   <span className='hidden sm:inline'>Open</span>

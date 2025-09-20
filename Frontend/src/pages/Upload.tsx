@@ -62,13 +62,6 @@ export default function Upload() {
 
     try {
       setLoading(true);
-
-      // const payload = {
-      //   title,
-      //   description,
-      //   access_level: accessLevel,
-      //   file_path: file.name,
-      // };
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
@@ -103,7 +96,6 @@ export default function Upload() {
   return (
     <div className='flex items-center justify-center min-h-[85vh] bg-color-background-light dark:bg-color-background-dark'>
       <Card className='w-[95vw] max-w-5xl border border-gray-300 shadow-lg dark:bg-color-background-dark-second'>
-        {/* Header */}
         <CardHeader
           floated={false}
           shadow={false}
@@ -123,7 +115,6 @@ export default function Upload() {
           </Typography>
         </CardHeader>
 
-        {/* Body */}
         <CardBody className='dark:bg-color-background-dark-third'>
           <form
             onSubmit={handleSubmit}

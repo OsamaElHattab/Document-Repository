@@ -24,7 +24,9 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "Documents")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-# ---------- Helpers ----------
+# ================================================================================================
+#                                        Helpers
+# ================================================================================================
 def can_access_document(user: User, document: Document, session: Session) -> bool:
     """Check if a user can access a given document."""
     if user.role and user.role.name.lower() == "admin":
@@ -60,7 +62,9 @@ def can_access_document(user: User, document: Document, session: Session) -> boo
     return False
 
 
-# ---------- Endpoints ----------
+# ================================================================================================
+#                                     Documents Endpoints
+# ================================================================================================
 @router.post("/", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
 def create_document(
     title: str = Form(...),
@@ -103,10 +107,22 @@ def create_document(
         version_number=1,
         title=title,
         description=description,
-        file_path=relative_path,
+        file_path="",  # will set after saving file
         uploaded_by=current_user.id,
         access_level=access_level,
     )
+    session.add(db_ver)
+    session.commit()
+    session.refresh(db_ver)
+
+    # Save version file with version UUID
+    version_filename = f"{db_ver.id}{ext}"
+    version_file_path = os.path.join(UPLOAD_DIR, version_filename)
+    # Copy the original file to the version file
+    with open(file_path, "rb") as src, open(version_file_path, "wb") as dst:
+        dst.write(src.read())
+    version_relative_path = f"Documents/{version_filename}"
+    db_ver.file_path = version_relative_path
     session.add(db_ver)
     session.commit()
     session.refresh(db_ver)
@@ -210,7 +226,7 @@ def get_file(doc_id: str, session: Session = Depends(get_session), current_user:
     return FileResponse(
         path=file_path,
         media_type="application/pdf" if file_path.endswith(".pdf") else "image/*",
-        headers={"Content-Disposition": "inline"}  # 🔑 important
+        headers={"Content-Disposition": "inline"}
     )
 
 
@@ -262,11 +278,15 @@ def delete_document(
     return
 
 
-# ----- Versions -----
+# ================================================================================================
+#                                     Versions Endpoints
+# ================================================================================================
 @router.post("/{doc_id}/versions", response_model=DocumentVersionRead, status_code=status.HTTP_201_CREATED)
 def add_version(
     doc_id: str,
-    ver: DocumentVersionCreate,
+    title: str = Form(...),
+    description: str = Form(""),
+    file: UploadFile = File(...),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -284,12 +304,13 @@ def add_version(
     ).first()
     next_version = (last_version or 0) + 1
 
+    # Create version DB record first (to get UUID as ID)
     db_ver = DocumentVersion(
         document_id=doc_id,
         version_number=next_version,
-        title=ver.title,
-        description=ver.description,
-        file_path=ver.file_path,
+        title=title,
+        description=description,
+        file_path="",  # will set after saving file
         uploaded_by=current_user.id,
         access_level=doc.access_level,
     )
@@ -297,6 +318,21 @@ def add_version(
     session.commit()
     session.refresh(db_ver)
 
+    # Save uploaded file with version UUID as filename
+    ext = os.path.splitext(file.filename)[1]
+    version_filename = f"{db_ver.id}{ext}"
+    version_file_path = os.path.join(UPLOAD_DIR, version_filename)
+    with open(version_file_path, "wb") as f:
+        f.write(file.file.read())
+    version_relative_path = f"Documents/{version_filename}"
+
+    # Update version record with file path
+    db_ver.file_path = version_relative_path
+    session.add(db_ver)
+    session.commit()
+    session.refresh(db_ver)
+
+    # Update document's current version pointer
     doc.current_version_id = db_ver.id
     session.add(doc)
     session.commit()
@@ -304,7 +340,7 @@ def add_version(
     return db_ver
 
 
-@router.get("/{doc_id}/versions", response_model=list[DocumentVersionRead])
+@router.get("/{doc_id}/versions", response_model=list[DocumentVersion])
 def list_versions(
     doc_id: str,
     session: Session = Depends(get_session),
@@ -312,14 +348,31 @@ def list_versions(
 ):
     doc = session.get(Document, doc_id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    if not can_access_document(current_user, doc, session):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    versions = session.exec(select(DocumentVersion).where(DocumentVersion.document_id == doc_id).order_by(DocumentVersion.version_number)).all()
+    return versions
+
+
+@router.get("/versions/{version_id}", response_model=DocumentVersion)
+def get_version(
+    version_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    ver = session.get(DocumentVersion, version_id)
+    if not ver:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+
+    doc = session.get(Document, ver.document_id)
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent document not found")
 
     if not can_access_document(current_user, doc, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
-    return session.exec(
-        select(DocumentVersion).where(DocumentVersion.document_id == doc_id)
-    ).all()
+    return ver
 
 
 @router.get("/{doc_id}/versions/{version_number}/download")
@@ -352,4 +405,45 @@ def download_version(
         abs_path,
         filename=os.path.basename(abs_path),
         media_type="application/octet-stream"
+    )
+
+@router.get("/versions/{version_id}/file")
+def get_version_file(
+    version_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Serve the file bytes for a specific version. Returns FileResponse inline."""
+    ver = session.get(DocumentVersion, version_id)
+    if not ver:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+    doc = session.get(Document, ver.document_id)
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent document not found")
+    if not can_access_document(current_user, doc, session):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    # Build absolute path safely:
+    # target_path = os.path.normpath(os.path.join(UPLOAD_DIR, ver.file_path))
+    # # Prevent path traversal (ensure target_path is inside UPLOAD_DIR)
+    # if not target_path.startswith(os.path.abspath(UPLOAD_DIR) + os.sep):
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file path")
+    # if not os.path.isfile(target_path):
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
+
+    # # Return inline content (not attachment)
+    # filename = os.path.basename(target_path)
+    # return FileResponse(
+    #     target_path,
+    #     media_type=None,  # let starlette/uvicorn guess or you can use mimetypes.guess_type
+    #     filename=filename,
+    #     headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    # )
+    file_path = ver.file_path
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf" if file_path.endswith(".pdf") else "image/*",
+        headers={"Content-Disposition": "inline"}
     )
