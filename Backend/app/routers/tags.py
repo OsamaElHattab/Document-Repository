@@ -77,3 +77,23 @@ def get_document_tags(document_id: str, session: Session = Depends(get_session))
     # Collect tags via the relationship
     tags = [link.tag for link in document.tags]
     return tags
+
+# Remove a tag from a document
+@router.delete("/detach/{document_id}/{tag_id}", status_code=204)
+def detach_tag_from_document(
+    document_id: str,
+    tag_id: int,
+    session: Session = Depends(get_session)
+):
+    link = session.exec(
+        select(DocumentTagLink).where(
+            DocumentTagLink.document_id == document_id,
+            DocumentTagLink.tag_id == tag_id
+        )
+    ).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Tag not associated with document")
+
+    session.delete(link)
+    session.commit()
+    return {"message": "Tag detached from document successfully"}

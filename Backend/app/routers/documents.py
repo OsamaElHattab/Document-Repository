@@ -10,7 +10,7 @@ from app.models.users import User
 from app.models.tags import Tag, DocumentTagLink
 from app.schemas.documents import (
     DocumentRead, DocumentUpdate,
-    DocumentVersionCreate, DocumentVersionRead
+    DocumentVersionRead
 )
 from app.routers.auth import get_current_user
 
@@ -81,6 +81,7 @@ def create_document(
         description=description,
         access_level=access_level,
         uploader_id=current_user.id,
+        created_at=func.now(),
     )
     session.add(db_doc)
     session.commit()
@@ -345,8 +346,6 @@ def delete_document(
 async def upload_version(
     doc_id: str,
     file: UploadFile = File(...),
-    title: str = Form(None),
-    description: str = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -355,7 +354,6 @@ async def upload_version(
     with open(save_path, "wb") as f:
         f.write(contents)
 
-    # Find the latest version number
     last_version = session.exec(
         select(DocumentVersion)
         .where(DocumentVersion.document_id == doc_id)
@@ -363,18 +361,13 @@ async def upload_version(
     ).first()
     next_version = 1 if last_version is None else last_version.version_number + 1
 
-    # Create new version
     version = DocumentVersion(
         document_id=doc_id,
         version_number=next_version,
-        title=title,
-        description=description,
-        access_level="public",
         file_path=save_path,
         uploaded_by=user.id,
         uploaded_at=func.now(),
     )
-
     session.add(version)
     session.commit()
     session.refresh(version)
@@ -382,47 +375,32 @@ async def upload_version(
 
 
 @router.get("/{doc_id}/versions", response_model=list[DocumentVersion])
-def list_versions(
-    doc_id: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
+def list_versions(doc_id: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     doc = session.get(Document, doc_id)
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        raise HTTPException(status_code=404, detail="Document not found")
     if not can_access_document(current_user, doc, session):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-    versions = session.exec(select(DocumentVersion).where(DocumentVersion.document_id == doc_id).order_by(DocumentVersion.version_number)).all()
-    return versions
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return session.exec(
+        select(DocumentVersion).where(DocumentVersion.document_id == doc_id).order_by(DocumentVersion.version_number)
+    ).all()
 
 
 @router.get("/versions/{version_id}", response_model=DocumentVersion)
-def get_version(
-    version_id: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
+def get_version(version_id: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     ver = session.get(DocumentVersion, version_id)
     if not ver:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
-
+        raise HTTPException(status_code=404, detail="Version not found")
     doc = session.get(Document, ver.document_id)
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent document not found")
-
+        raise HTTPException(status_code=404, detail="Parent document not found")
     if not can_access_document(current_user, doc, session):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+        raise HTTPException(status_code=403, detail="Not authorized")
     return ver
 
 
 @router.get("/{doc_id}/versions/{version_number}/download")
-def download_version(
-    doc_id: str,
-    version_number: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
+def download_version(doc_id: str, version_number: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     version = session.exec(
         select(DocumentVersion).where(
             DocumentVersion.document_id == doc_id,
@@ -438,31 +416,22 @@ def download_version(
 
     abs_path = os.path.join(os.path.dirname(__file__), "..", "..", version.file_path)
     abs_path = os.path.abspath(abs_path)
-
     if not os.path.exists(abs_path):
         raise HTTPException(status_code=404, detail="File not found on server")
 
-    return FileResponse(
-        abs_path,
-        filename=os.path.basename(abs_path),
-        media_type="application/octet-stream"
-    )
+    return FileResponse(abs_path, filename=os.path.basename(abs_path), media_type="application/octet-stream")
+
 
 @router.get("/versions/{version_id}/file")
-def get_version_file(
-    version_id: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """Serve the file bytes for a specific version. Returns FileResponse inline."""
+def get_version_file(version_id: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     ver = session.get(DocumentVersion, version_id)
     if not ver:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+        raise HTTPException(status_code=404, detail="Version not found")
     doc = session.get(Document, ver.document_id)
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent document not found")
+        raise HTTPException(status_code=404, detail="Parent document not found")
     if not can_access_document(current_user, doc, session):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     file_path = ver.file_path
     if not os.path.isfile(file_path):
@@ -472,3 +441,18 @@ def get_version_file(
         media_type="application/pdf" if file_path.endswith(".pdf") else "image/*",
         headers={"Content-Disposition": "inline"}
     )
+
+@router.delete("/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_version(version_id: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    ver = session.get(DocumentVersion, version_id)
+    if not ver:
+        raise HTTPException(status_code=404, detail="Version not found")
+    doc = session.get(Document, ver.document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Parent document not found")
+    if not can_access_document(current_user, doc, session):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    session.delete(ver)
+    session.commit()
+    return

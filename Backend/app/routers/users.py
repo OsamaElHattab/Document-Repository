@@ -48,3 +48,12 @@ def update_user(user_id: str, data: UserUpdate, session: Session = Depends(get_s
     session.commit()
     session.refresh(user)
     return user
+
+@router.delete("/{user_id}", status_code=204, dependencies=[Depends(get_current_admin_user)])
+def delete_user(user_id: str, session: Session = Depends(get_session)):
+    db_user = session.get(User, user_id)
+    if not db_user:
+        return {"error": "User not found"}
+    session.delete(db_user)
+    session.commit()
+    return {"message": "User deleted successfully"}

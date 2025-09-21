@@ -20,3 +20,12 @@ def create_role(role: RoleCreate, session: Session = Depends(get_session)):
 @router.get("/", response_model=list[RoleRead])
 def list_roles(session: Session = Depends(get_session)):
     return session.exec(select(Role)).all()
+
+@router.delete("/{role_id}", status_code=204, dependencies=[Depends(get_current_admin_user)])
+def delete_role(role_id: int, session: Session = Depends(get_session)):
+    db_role = session.get(Role, role_id)
+    if not db_role:
+        return {"error": "Role not found"}
+    session.delete(db_role)
+    session.commit()
+    return {"message": "Role deleted successfully"}

@@ -81,7 +81,7 @@ export default function Register() {
 
       const data = await response.json();
       localStorage.setItem('token', data.access_token);
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
       console.error('Error registering:', error);
       alert('Failed to register. Please try again.');

@@ -12,7 +12,7 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
     "/",
     response_model=DepartmentRead,
     status_code=201,
-    # dependencies=[Depends(get_current_admin_user), Depends(get_current_user)]
+    dependencies=[Depends(get_current_admin_user), Depends(get_current_user)]
 )
 def create_department(dept: DepartmentCreate, session: Session = Depends(get_session)):
     db_dept = Department(name=dept.name)
@@ -25,3 +25,13 @@ def create_department(dept: DepartmentCreate, session: Session = Depends(get_ses
 @router.get("/", response_model=list[DepartmentRead])
 def list_departments(session: Session = Depends(get_session)):
     return session.exec(select(Department)).all()
+
+@router.delete("/{department_id}", status_code=204)
+def delete_department(department_id: str, session: Session = Depends(get_session),
+                      current_user=Depends(get_current_admin_user)):
+    db_dept = session.get(Department, department_id)
+    if not db_dept:
+        return {"error": "Department not found"}
+    session.delete(db_dept)
+    session.commit()
+    return {"message": "Department deleted successfully"}
