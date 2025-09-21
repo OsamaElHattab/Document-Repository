@@ -26,6 +26,7 @@ export default withMT({
         // dark and light colors
         'color-background-light': '#e9ecef',
         'color-background-light-second': '#ffffff',
+        'color-background-light-third': '#f0f0f0',
         'color-background-dark': '#181818',
         'color-background-dark-second': '#23272b',
         'color-background-dark-third': '#15171a',

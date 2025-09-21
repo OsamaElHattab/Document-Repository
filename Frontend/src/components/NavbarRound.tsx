@@ -22,7 +22,7 @@ export function NavbarRound() {
 
   // Define navigation items for both the navbar and drawer
   const navItems = [
-    { to: '/', label: 'Documents', Icon: IoDocuments },
+    { to: '/', label: 'My Documents', Icon: IoDocuments },
     { to: '/search', label: 'Search', Icon: IoSearch },
     { to: '/upload', label: 'Upload', Icon: IoCloudUpload },
   ];
@@ -88,7 +88,7 @@ function DrawerWithNavigation() {
 
   // Navigation items (same as the main navbar)
   const navItems = [
-    { to: '/', label: 'Documents', Icon: IoDocuments },
+    { to: '/', label: 'My Documents', Icon: IoDocuments },
     { to: '/search', label: 'Search', Icon: IoSearch },
     { to: '/upload', label: 'Upload', Icon: IoCloudUpload },
   ];

@@ -257,7 +257,7 @@ export default function DocumentDetail() {
   }
 
   return (
-    <div className='max-h-[85vh] p-6 bg-color-background-light dark:bg-color-background-dark xl:px-12'>
+    <div className='lg:max-h-[85vh] p-6 bg-color-background-light dark:bg-color-background-dark xl:px-12'>
       <div className='mx-auto max-w-screen-2xl flex flex-col lg:flex-row gap-6'>
         {/* Metadata + Versions */}
         <div className='w-full lg:w-1/4 flex flex-col gap-6 order-1 lg:order-2'>
@@ -271,7 +271,7 @@ export default function DocumentDetail() {
                 >
                   Title
                 </Typography>
-                <Typography className='text-color-text-light dark:text-color-text-dark font-semibold'>
+                <Typography className='text-color-text-light dark:text-color-text-dark font-semibold ml-2'>
                   {doc?.title}
                 </Typography>
               </div>
@@ -282,7 +282,7 @@ export default function DocumentDetail() {
                 >
                   Description
                 </Typography>
-                <Typography className='text-color-text-light dark:text-color-text-dark'>
+                <Typography className='text-color-text-light dark:text-color-text-dark ml-2'>
                   {doc?.description || 'No description'}
                 </Typography>
               </div>
@@ -295,7 +295,12 @@ export default function DocumentDetail() {
                 </Typography>
                 <div className='flex flex-wrap gap-2 mb-2'>
                   {tags.map((t) => (
-                    <Chip key={t.id} value={t.name} variant='ghost' />
+                    <Chip
+                      key={t.id}
+                      value={t.name}
+                      variant='ghost'
+                      className='bg-color-background-light-third dark:bg-color-background-dark text-color-text-light dark:text-color-text-dark'
+                    />
                   ))}
                 </div>
                 <div className='flex gap-2 w-full'>
@@ -307,8 +312,11 @@ export default function DocumentDetail() {
                     className='flex-1'
                     containerProps={{ className: 'w-full' }}
                   />
-                  <IconButton variant='outlined' onClick={handleAddTag}>
-                    <PlusIcon className='w-4 h-4' />
+                  <IconButton
+                    onClick={handleAddTag}
+                    className=' hover:bg-gray-300 dark:hover:bg-gray-700 bg-color-background-light-third dark:bg-color-background-dark'
+                  >
+                    <PlusIcon className='w-4 h-4 text-color-text-light dark:text-color-text-dark' />
                   </IconButton>
                 </div>
               </div>
@@ -327,23 +335,23 @@ export default function DocumentDetail() {
                 </Typography>
                 <Button
                   size='sm'
-                  variant='outlined'
+                  variant='text'
                   onClick={() => setOpenUpload(true)}
-                  className='flex items-center gap-1'
+                  className='flex items-center gap-1 dark:text-color-text-dark dark:bg-color-background-dark dark:hover:bg-color-background-dark-third bg-color-background-light-third'
                 >
                   <ArrowUpTrayIcon className='w-4 h-4' />
                   New
                 </Button>
               </div>
-              <List className='mt-2 divide-y divide-gray-200 dark:divide-gray-700 max-h-[50vh] overflow-auto'>
+              <List className='mt-2 divide-y divide-gray-200 dark:divide-gray-700 max-h-[38vh] overflow-auto'>
                 {[...versions].reverse().map((v) => {
                   const isSelected = v.id === selectedVersionId;
                   return (
                     <ListItem
                       key={v.id}
-                      className={`flex items-center justify-between gap-2 py-3 ${
+                      className={`flex items-center justify-between gap-2 py-3 min-h-11 dark:hover:bg-color-background-dark-third ${
                         isSelected
-                          ? 'bg-blue-50 dark:bg-blue-900/30 rounded-md'
+                          ? 'bg-blue-50 dark:bg-color-background-dark rounded-md'
                           : ''
                       }`}
                     >
@@ -352,8 +360,7 @@ export default function DocumentDetail() {
                         onClick={() => handleSelectVersion(v)}
                       >
                         <Typography
-                          variant='small'
-                          className={`font-medium ${
+                          className={`font-medium text-base ${
                             isSelected
                               ? 'text-color-text-light dark:text-color-text-dark'
                               : 'text-gray-700 dark:text-gray-200'
@@ -362,7 +369,7 @@ export default function DocumentDetail() {
                           v{v.version_number}{' '}
                           {doc?.title ? `- ${doc?.title}` : ''}
                         </Typography>
-                        <Typography className='text-gray-500 dark:text-gray-400'>
+                        <Typography className='text-gray-500 dark:text-gray-400 font-normal text-xs'>
                           {v.uploaded_at
                             ? new Date(v.uploaded_at).toLocaleString()
                             : ''}

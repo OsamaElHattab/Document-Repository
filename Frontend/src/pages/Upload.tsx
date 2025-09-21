@@ -13,6 +13,7 @@ import {
   Chip,
 } from '@material-tailwind/react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 export default function Upload() {
   const [title, setTitle] = useState('');
@@ -27,6 +28,7 @@ export default function Upload() {
   const [dragActive, setDragActive] = useState(false);
 
   const token = localStorage.getItem('token');
+  const navigate = useNavigate();
 
   const axiosAuth = axios.create({
     baseURL: 'http://127.0.0.1:8000',
@@ -102,21 +104,20 @@ export default function Upload() {
 
       const docId = res.data.id;
 
-      // Handle tags: create if not exist and link to document
+      // Handle tags
+      // create if not exist and link to document
       for (const tagName of tags) {
         try {
           // Try to create tag (will fail if exists)
-          const tagRes = await axiosAuth.post('/tags/', { name: tagName });
-          const tagId = tagRes.data.id;
-
-          await axiosAuth.post(`/documents/${docId}/tags/${tagId}`);
+          await axiosAuth.post('/tags/', { name: tagName });
+          await axiosAuth.post(`/tags/attach/${docId}`, { name: tagName });
         } catch (err: any) {
           if (err.response?.status === 400 || err.response?.status === 409) {
-            // Already exists, fetch it
+            // Already exists, attach it
             const allTags = await axiosAuth.get('/tags/');
             const existing = allTags.data.find((t: any) => t.name === tagName);
             if (existing) {
-              await axiosAuth.post(`/documents/${docId}/tags/${existing.id}`);
+              await axiosAuth.post(`/tags/attach/${docId}`, { name: tagName });
             }
           } else {
             console.error('Tag error:', err);
@@ -130,6 +131,7 @@ export default function Upload() {
       setAccessLevel('public');
       setFile(null);
       setTags([]);
+      navigate(`/documents/${docId}`);
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Upload failed. Please try again.');
@@ -140,7 +142,7 @@ export default function Upload() {
 
   return (
     <div className='flex items-center justify-center min-h-[85vh] mt-2 bg-color-background-light dark:bg-color-background-dark'>
-      <Card className='w-[95vw] max-w-5xl border border-gray-300 shadow-lg dark:bg-color-background-dark-second'>
+      <Card className='w-[95vw] max-w-5xl border border-gray-300 shadow-lg dark:bg-color-background-dark-second dark:border-0'>
         <CardHeader
           floated={false}
           shadow={false}
@@ -181,7 +183,7 @@ export default function Upload() {
                   placeholder='Document Title'
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                  className='placeholder:!opacity-100 dark:bg-color-background-dark-second dark:text-color-text-dark dark:border-0'
                 />
               </div>
 
@@ -198,7 +200,7 @@ export default function Upload() {
                   placeholder='Brief description of the document'
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                  className='dark:bg-color-background-dark-second dark:text-color-text-dark dark:border-0'
                 />
               </div>
 
@@ -218,7 +220,7 @@ export default function Upload() {
                       (val as 'public' | 'private' | 'department') || 'public'
                     )
                   }
-                  className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                  className='dark:bg-color-background-dark-second dark:text-color-text-dark dark:border-0'
                 >
                   <Option
                     value='public'
@@ -255,7 +257,7 @@ export default function Upload() {
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagKeyDown}
-                  className='dark:bg-color-background-dark-second dark:text-color-text-dark'
+                  className='placeholder:!opacity-100 dark:bg-color-background-dark-second dark:text-color-text-dark dark:border-0'
                 />
                 <div className='flex flex-wrap gap-2 mt-2'>
                   {tags.map((tag) => (
@@ -273,10 +275,10 @@ export default function Upload() {
             {/* Right side: file upload */}
             <label
               htmlFor='file-upload'
-              className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer ${
+              className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer dark:border-blue-gray-900 ${
                 dragActive
                   ? 'border-blue-500 bg-blue-50 dark:bg-color-background-dark-third'
-                  : 'border-gray-400 bg-white dark:bg-color-background-dark-second'
+                  : 'border-gray-400 bg-color-background-light dark:bg-color-background-dark-second'
               }`}
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
