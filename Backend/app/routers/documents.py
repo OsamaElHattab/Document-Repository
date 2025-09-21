@@ -1,12 +1,13 @@
 import os
 import uuid
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select, func
 from app.db import get_session
 from app.models.documents import Document, DocumentVersion
 from app.models.permissions import DocumentUserPermission, DocumentDepartmentPermission
 from app.models.users import User
+from app.models.tags import Tag, DocumentTagLink
 from app.schemas.documents import (
     DocumentRead, DocumentUpdate,
     DocumentVersionCreate, DocumentVersionRead
@@ -155,22 +156,43 @@ def list_my_documents(
         select(Document).where(Document.uploader_id == current_user.id)
     ).all()
 
-
-@router.get("/{doc_id}", response_model=DocumentRead, status_code=status.HTTP_200_OK)
-def get_document(
-    doc_id: str,
+@router.get("/search")
+def search_documents(
+    q: str = Query(..., description="Search query"),
+    field: str = Query("title", regex="^(title|tags|uploader)$"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    doc = session.get(Document, doc_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+    base_query = select(Document)
 
-    if not can_access_document(current_user, doc, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if field == "title":
+        base_query = base_query.where(Document.title.ilike(f"%{q}%"))
+    elif field == "uploader":
+        base_query = base_query.join(User, User.id == Document.uploader_id).where(User.username.ilike(f"%{q}%"))
+    elif field == "tags":
+        base_query = (
+            base_query.join(DocumentTagLink, DocumentTagLink.document_id == Document.id)
+            .join(Tag, Tag.id == DocumentTagLink.tag_id)
+            .where(Tag.name.ilike(f"%{q}%"))
+        )
 
-    return doc
+    all_docs = session.exec(base_query).all()
+    # print("all_docs:", all_docs)
+    accessible_docs = [doc for doc in all_docs if can_access_document(current_user, doc, session)]
 
+    total = len(accessible_docs)
+    start = (page - 1) * per_page
+    end = start + per_page
+    items = accessible_docs[start:end]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
 
 @router.get("/{doc_id}/download")
 def download_document(
@@ -195,6 +217,28 @@ def download_document(
         abs_path,
         filename=os.path.basename(abs_path),
         media_type="application/octet-stream"
+    )
+
+@router.get("/{doc_id}/file")
+def get_document_file(
+    doc_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    doc = session.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not can_access_document(current_user, doc, session):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    file_path = doc.file_path
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf" if file_path.endswith(".pdf") else "image/*",
+        headers={"Content-Disposition": "inline"}
     )
 
 
@@ -229,6 +273,22 @@ def get_file(doc_id: str, session: Session = Depends(get_session), current_user:
         media_type="application/pdf" if file_path.endswith(".pdf") else "image/*",
         headers={"Content-Disposition": "inline"}
     )
+
+
+@router.get("/{doc_id}", response_model=DocumentRead, status_code=status.HTTP_200_OK)
+def get_document(
+    doc_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    doc = session.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not can_access_document(current_user, doc, session):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return doc
 
 
 @router.patch("/{doc_id}", response_model=DocumentRead)
@@ -277,7 +337,6 @@ def delete_document(
     session.delete(doc)
     session.commit()
     return
-
 
 # ================================================================================================
 #                                     Versions Endpoints
